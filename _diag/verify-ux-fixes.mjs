@@ -164,6 +164,47 @@ const readSwitch = (text) =>
     '})()',
   ].join('\n')
 
+/** 一次读多个开关的勾选 / 禁用状态（按文案模糊定位 <label class="switch">）。 */
+const readSwitches = (labels) =>
+  [
+    '(() => {',
+    '  const want = ' + JSON.stringify(labels),
+    "  const all = Array.from(document.querySelectorAll('.collapse__body .switch'))",
+    '  return want.map((text) => {',
+    "    const label = all.find((n) => n.textContent.trim().indexOf(text) >= 0)",
+    "    if (!label) return { label: text, error: 'not-found' }",
+    "    const input = label.querySelector('input[type=checkbox]')",
+    '    return { label: text, checked: input.checked, disabled: input.disabled }',
+    '  })',
+    '})()',
+  ].join('\n')
+
+/** 找到某个开关并回报「鼠标该落在哪」——用来做真实悬停（浮层只认真实鼠标 / 键盘聚焦）。
+ *
+ * 落点取行的右侧：左边是复选框本体，落在它上面时浏览器会把鼠标事件算到控件上，
+ * 而禁用的控件不派发鼠标事件，悬停就白做了。
+ */
+const hoverSwitch = (text) =>
+  [
+    '(() => {',
+    "  const label = Array.from(document.querySelectorAll('.collapse__body .switch')).find((n) => n.textContent.trim().indexOf('" + text + "') >= 0)",
+    "  if (!label) return { error: 'not-found' }",
+    "  label.scrollIntoView({ block: 'center' })",
+    '  const r = label.getBoundingClientRect()',
+    "  if (r.width < 8 || r.height < 8) return { error: 'zero-rect' }",
+    '  return { x: r.right - 16, y: r.top + r.height / 2, disabled: !!label.querySelector("input[type=checkbox]").disabled }',
+    '})()',
+  ].join('\n')
+
+/** 读当前弹出的说明浮层文本。浮层是挂到 document.body 上的 portal（见 HoverTip.tsx:27）。 */
+const shownTip = () =>
+  [
+    '(() => {',
+    "  const tip = document.querySelector('.hinttip')",
+    '  return tip ? tip.textContent : null',
+    '})()',
+  ].join('\n')
+
 /** 数一数面板文本里某个词出现了几次（用于断言换成输入框的字段还在）。 */
 const countText = (text) =>
   [
@@ -515,6 +556,72 @@ check(
   reset === 'clicked' && flipped && !afterReset.error && afterReset.checked === toggled.before,
   JSON.stringify({ toggled, afterToggle, reset, afterReset }),
 )
+
+// ── ④ 存储总开关：不勾「启用存储」，下面那些子开关一个都不落盘 ─────────────────────
+// 后端 SessionStorage.Open() 第一行就是 `if (!_config.Enabled) return;`（连会话目录都不建），
+// WriteRaw / WriteParsed / WriteRadarBase / WriteFrame 每个写入口也都先看它。所以界面必须诚实：
+// 总开关一关，子开关就该是灰的，并且要说清为什么。只改显示——灰掉不动值，勾回来立刻恢复。
+const KIDS = ['保存雷达转基座系', '保存三设备同帧', '解析文件内嵌原始数据', '写 session.json 清单', '基座 原始数据']
+const beforeMaster = await cdp.eval(sessionId, readSwitches(['启用存储', ...KIDS]))
+const kidsBefore = beforeMaster.slice(1)
+check(
+  '存储总开关与子开关初始都可点',
+  beforeMaster[0].checked === true && kidsBefore.every((s) => !s.error && !s.disabled),
+  JSON.stringify(beforeMaster),
+)
+
+const offMaster = await cdp.eval(sessionId, toggleSwitch('启用存储'))
+await sleep(400)
+const afterOff = await cdp.eval(sessionId, readSwitches(['启用存储', ...KIDS]))
+const kidsOff = afterOff.slice(1)
+check(
+  '关掉「启用存储」后子开关一起变灰（值一个都没动）',
+  offMaster.after === false && kidsOff.every((s, i) => s.disabled === true && s.checked === kidsBefore[i].checked),
+  JSON.stringify({ offMaster, afterOff }),
+)
+
+/** 把真实鼠标移到某个开关上：浮层只认真实悬停 / 键盘聚焦，合成事件不算数。 */
+const hoverAt = async (pos) => {
+  if (!pos || pos.error) return pos
+  await cdp.send(
+    'Input.dispatchMouseEvent',
+    { type: 'mouseMoved', x: Math.round(pos.x), y: Math.round(pos.y), button: 'none', pointerType: 'mouse' },
+    sessionId,
+  )
+  await sleep(600)
+  return 'moved'
+}
+const mouseAway = () =>
+  cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 8, y: 8, button: 'none', pointerType: 'mouse' }, sessionId)
+
+const masterPos = await cdp.eval(sessionId, hoverSwitch('启用存储'))
+const hoveredMaster = await hoverAt(masterPos)
+const masterTip = await cdp.eval(sessionId, shownTip())
+const shotMaster = await shoot('storage-master-off')
+check(
+  '总开关的说明浮层讲清「不建会话目录、子开关都不落盘」',
+  hoveredMaster === 'moved' && !!masterTip && /总开关/.test(masterTip) && /不建会话目录/.test(masterTip),
+  JSON.stringify({ masterPos, masterTip }),
+)
+
+const kidPos = await cdp.eval(sessionId, hoverSwitch('保存三设备同帧'))
+const hoveredKid = await hoverAt(kidPos)
+const kidTip = await cdp.eval(sessionId, shownTip())
+check(
+  '灰掉的子开关上也能看到「总开关没勾，这个开关当前不生效」',
+  hoveredKid === 'moved' && !!kidTip && /当前不生效/.test(kidTip),
+  JSON.stringify({ kidPos, kidTip }),
+)
+await mouseAway()
+
+const onMaster = await cdp.eval(sessionId, toggleSwitch('启用存储'))
+await sleep(400)
+const afterOn = await cdp.eval(sessionId, readSwitches(['启用存储', ...KIDS]))
+check(
+  '勾回总开关后子开关立刻恢复可点，值照旧',
+  onMaster.after === true && afterOn.slice(1).every((s, i) => !s.disabled && s.checked === kidsBefore[i].checked),
+  JSON.stringify({ onMaster, afterOn }),
+)
 // 面板自始至终没把配置写回去（我们没点「保存并生效」）：配置文件里仍是原来那个口
 const cfgAfter = await (await fetch('http://localhost:5080/api/config')).json()
 const serialAfter = (cfgAfter.devices ?? []).find((d) => d.transport === 'serial')
@@ -525,12 +632,18 @@ check(
   '保存值=' + JSON.stringify(savedPort) + ' 现在=' + JSON.stringify(savedAfter),
 )
 report.savedPort = { before: savedPort, after: savedAfter }
+check(
+  '配置文件里的「启用存储」也没被面板自动改写',
+  !!(cfgAfter.storage && cfgAfter.storage.enabled === true),
+  '现在=' + JSON.stringify(cfgAfter.storage && cfgAfter.storage.enabled),
+)
+report.storage = { master: beforeMaster[0], kids: kidsBefore, afterOff, afterOn }
 
-report.shots = { shotLoad, shotOut, shotPanel, shotSerial }
+report.shots = { shotLoad, shotOut, shotPanel, shotSerial, shotMaster }
 report.compass = { home, far, near }
 const file = path.join(OUT, 'verify-ux-fixes.json')
 fs.writeFileSync(file, JSON.stringify(report, null, 2))
-console.log('\n截图：' + shotLoad + ' , ' + shotOut + ' , ' + shotPanel + ' , ' + shotSerial)
+console.log('\n截图：' + shotLoad + ' , ' + shotOut + ' , ' + shotPanel + ' , ' + shotSerial + ' , ' + shotMaster)
 console.log('落盘：' + file)
 console.log(fails.length === 0 ? '\n全部通过' : '\n失败项：' + fails.join(' / '))
 process.exit(fails.length === 0 ? 0 : 2)

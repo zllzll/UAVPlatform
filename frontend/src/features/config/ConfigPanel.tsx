@@ -1010,12 +1010,22 @@ function StorageTab({
   isCollapsed: (id: string) => boolean
   onToggle: (id: string) => void
 }): React.ReactElement {
+  /** 「启用存储」是总开关：SessionStorage 里连会话目录都不建（Open() 第一行就是
+   *  `if (!_config.Enabled) return;`），01~05 五个目录的每个写入口同样先看它。
+   *  所以总开关关掉时，下面这些子开关打开也不会有任何落盘。这里把它们连带灰掉并说明原因
+   *  ——只改显示：开关自身的值原样保留，勾回总开关立刻按原设置生效。 */
+  const storageOff = !storage.enabled
+  const childHint = storageOff
+    ? '「启用存储」没勾选：这个开关当前不生效（连会话目录都不建，01~05 目录都不写）。勾上总开关后立即按这里的设置落盘。'
+    : undefined
+
   return (
     <Collapse id="sto:main" title="存储" collapsed={isCollapsed('sto:main')} onToggle={onToggle}>
       <div className="grid2">
         <Check
           label="启用存储"
           checked={storage.enabled}
+          hint="存储总开关。关掉后不建会话目录，01~05 五个目录一个都不写——下面那些子开关即使打开也不落盘。"
           onChange={(checked) =>
             updateDraft((d) => {
               d.storage.enabled = checked
@@ -1143,6 +1153,8 @@ function StorageTab({
         <Check
           label="保存雷达转基座系"
           checked={storage.saveRadarBase}
+          disabled={storageOff}
+          hint={childHint}
           onChange={(checked) =>
             updateDraft((d) => {
               d.storage.saveRadarBase = checked
@@ -1152,6 +1164,8 @@ function StorageTab({
         <Check
           label="保存三设备同帧"
           checked={storage.saveFrame}
+          disabled={storageOff}
+          hint={childHint}
           onChange={(checked) =>
             updateDraft((d) => {
               d.storage.saveFrame = checked
@@ -1161,6 +1175,8 @@ function StorageTab({
         <Check
           label="解析文件内嵌原始数据"
           checked={storage.embedRawInParsed}
+          disabled={storageOff}
+          hint={childHint}
           onChange={(checked) =>
             updateDraft((d) => {
               d.storage.embedRawInParsed = checked
@@ -1170,6 +1186,8 @@ function StorageTab({
         <Check
           label="写 session.json 清单"
           checked={storage.writeManifest}
+          disabled={storageOff}
+          hint={childHint}
           onChange={(checked) =>
             updateDraft((d) => {
               d.storage.writeManifest = checked
@@ -1193,6 +1211,8 @@ function StorageTab({
             <Check
               label={`${DEVICE_KIND_SHORT[device.kind]} 原始数据`}
               checked={device.saveRaw}
+              disabled={storageOff}
+              hint={childHint}
               onChange={(checked) =>
                 editDevice(device.kind, (dev) => {
                   dev.saveRaw = checked
@@ -1202,6 +1222,8 @@ function StorageTab({
             <Check
               label={`${DEVICE_KIND_SHORT[device.kind]} 解析数据`}
               checked={device.saveParsed}
+              disabled={storageOff}
+              hint={childHint}
               onChange={(checked) =>
                 editDevice(device.kind, (dev) => {
                   dev.saveParsed = checked

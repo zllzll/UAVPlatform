@@ -282,6 +282,54 @@ describe('ConfigPanel', () => {
     expect(screen.getByText('十六进制文本')).toBeInTheDocument()
   })
 
+  // m01281：现场说明「启用存储」是总开关——不勾它，其它存储子开关打开也不会落盘。
+  // 后端确实如此：SessionStorage.Open() 第一行就是 `if (!_config.Enabled) return;`（连会话目录都不建），
+  // WriteRaw / WriteParsed / WriteRadarBase / WriteFrame 每个写入口也都先看它。
+  // 所以界面上必须把这几个子开关连带灰掉并说明原因，否则用户会以为「开关打开了就会写」。
+  // 只改显示：灰掉不动草稿里的值，勾回总开关立刻恢复。
+  it('「启用存储」没勾选时子开关一起灰掉，勾回来立刻恢复（值不改）', async () => {
+    await seedStopped()
+    const { container } = render(<ConfigPanel />)
+    expandAll()
+    fireEvent.click(screen.getByRole('button', { name: '存储' }))
+
+    /** 开关行：文字与 checkbox 在同一个 <label className="switch"> 里（说明文字只在悬停时进 DOM）。 */
+    function switchInput(label: string): HTMLInputElement {
+      const row = Array.from(container.querySelectorAll('.switch')).find(
+        (el) => el.textContent?.trim() === label,
+      )
+      if (!row) throw new Error(`找不到开关 ${label}`)
+      return row.querySelector('input') as HTMLInputElement
+    }
+
+    const childLabels = ['保存三设备同帧', '写 session.json 清单', '基座 原始数据', '雷达 解析数据']
+    const childState = (): { disabled: boolean; checked: boolean }[] =>
+      childLabels.map((label) => {
+        const input = switchInput(label)
+        return { disabled: input.disabled, checked: input.checked }
+      })
+
+    // fixture 里总开关是开的、子开关也都开着
+    expect(switchInput('启用存储').checked).toBe(true)
+    expect(childState().every((s) => !s.disabled)).toBe(true)
+
+    fireEvent.click(switchInput('启用存储'))
+
+    expect(useStore.getState().configDraft?.storage.enabled).toBe(false)
+    // 四个子开关一起灰掉，且值一个都没被动过
+    expect(childState()).toEqual([
+      { disabled: true, checked: true },
+      { disabled: true, checked: true },
+      { disabled: true, checked: true },
+      { disabled: true, checked: true },
+    ])
+
+    fireEvent.click(switchInput('启用存储'))
+
+    expect(useStore.getState().configDraft?.storage.enabled).toBe(true)
+    expect(childState().every((s) => !s.disabled)).toBe(true)
+  })
+
   it('改草稿不会立刻改动已保存配置', async () => {
     await seedStopped()
     render(<ConfigPanel />)
