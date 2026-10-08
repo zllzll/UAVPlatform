@@ -1,0 +1,28 @@
+# 构建产物
+bin/
+obj/
+frontend/dist/
+backend/src/UavPlatform.Api/wwwroot/
+
+# 运行期数据（原始/解析/融合记录、会话清单、配置）
+data/
+backend/src/UavPlatform.Api/data/
+backend/src/UavPlatform.Api/config/platform.json
+backend/src/UavPlatform.Api/config/platform.json.bad
+
+# 离线复制的依赖，禁止删除，也不进版本库
+frontend/node_modules/
+
+# 诊断与临时产物（无头浏览器 profile、旧会话转储、截图、日志等，整体不入库）
+_diag/*
+# 例外：真浏览器回归脚本与「已删除功能」的归档说明值得进版本库
+!_diag/verify-ux-fixes.mjs
+!_diag/removed-simulation/
+*.log
+
+# 编辑器与系统
+.vs/
+.idea/
+*.user
+Thumbs.db
+desktop.ini

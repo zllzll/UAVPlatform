@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 版本必须落在本机 NuGet 缓存内：本机访问不了 nuget.org，缺失版本会导致还原失败
+         （实测报错：error : End of Central Directory record could not be found）。
+         缓存可用版本：coverlet.collector 8.0.1；
+         Microsoft.NET.Test.Sdk 17.10.0 / 17.11.1 / 17.14.1；
+         xunit 2.9.0 / 2.9.2 / 2.9.3；xunit.runner.visualstudio 2.8.2 / 3.1.5。 -->
+    <PackageReference Include="coverlet.collector" Version="8.0.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UavPlatform.Core\UavPlatform.Core.csproj" />
+  </ItemGroup>
+
+</Project>

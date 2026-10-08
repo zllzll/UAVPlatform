@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/UavPlatform.Core/UavPlatform.Core.csproj" />
+  <Project Path="src/UavPlatform.Api/UavPlatform.Api.csproj" />
+  <Project Path="tests/UavPlatform.Tests/UavPlatform.Tests.csproj" />
+</Solution>

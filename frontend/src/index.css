@@ -1,0 +1,1033 @@
+/**
+ * 全局样式。深色主题，与三维视图的星空底色一致。
+ *
+ * 类名约定（组件侧只使用这些类名，不再各自写 CSS）：
+ *   布局      app / app__header / app__title / app__toolbar / app__body / app__body--leftfold / app__body--rightfold
+ *             app__sidebar / app__info / app__rail / app__railbtn / app__center / app__viewer
+ *   面板      panel / panel__title / panel__body / panel__section / panel__actions
+ *   信息面板  infopanel__block / infopanel__row / infopanel__label / infopanel__value
+ *             infopanel__value--ok / infopanel__value--warn / infopanel__value--bad
+ *             infopanel__tablewrap / infopanel__table / infopanel__id / infopanel__type
+ *             infopanel__list / infopanel__sample / infopanel__time / infopanel__summary
+ *   表单      field / field__label / field__control / row / stack / grid2 / grid3
+ *   按钮      btn / btn--primary / btn--danger / btn--ghost / btn--tiny
+ *   标记      chip / chip--ok / chip--warn / chip--bad / chip--idle
+ *   表格      kv / kv__k / kv__v / table（状态面板的极坐标校核表）
+ *   文本      hint / hinttip / hintmark / mono / switch
+ *   视图      viewer3d / viewer3d__views / viewer3d__hint / viewbtn / viewbtn--active
+ *             viewer-hud / viewer-hud__line / viewer-hud__sub
+ *             scene-tag / scene-tag--drone / scene-tag--radar / scene-tag--base
+ *   其它      tabs / tabs__item / tabs__item--active / tabs--wrap / notices / notice / notice--bad
+ */
+
+:root {
+  color-scheme: dark;
+  --bg: #070b14;
+  --bg-panel: #0e1524;
+  --bg-panel-2: #131c2e;
+  --bg-input: #0a1120;
+  --border: #1f2b42;
+  --border-strong: #2c3d5c;
+  --text: #dbe4f3;
+  --text-dim: #8b9ab3;
+  --text-faint: #61708a;
+  --accent: #38bdf8;
+  --accent-2: #a78bfa;
+  --drone: #f97316;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --radius: 8px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+/* ── 应用骨架 ───────────────────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, #101a2c, #0b1220);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.app__title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.app__title small {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.app__spacer {
+  flex: 1 1 auto;
+}
+
+/* 显示开关条：比顶栏更矮更暗，作为次级工具行 */
+.app__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 14px;
+  background: #0b1220;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+
+.app__toolbar .hint {
+  margin: 0;
+}
+
+/* 三列：左（参数/状态）+ 中（三维）+ 右（解析文本/日志）。
+   两列的宽度走 CSS 变量，收起时只把变量改成窄边条宽度，列序不会错位。中间不再有底部样本表：
+   它与右栏「解析原文」是同一份数据的两个出口，留着只是白占三维视图的高度。 */
+.app__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: var(--col-left, 372px) minmax(0, 1fr) var(--col-right, 404px);
+  min-height: 0;
+}
+
+.app__body--leftfold {
+  --col-left: 32px;
+}
+
+.app__body--rightfold {
+  --col-right: 32px;
+}
+
+.app__sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app__info {
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 收起后的窄边条：竖排按钮占满整列，点一下展开。 */
+.app__rail {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app__rail--right {
+  border-right: 0;
+  border-left: 1px solid var(--border);
+}
+
+.app__railbtn {
+  writing-mode: vertical-rl;
+  letter-spacing: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 3px;
+  height: fit-content;
+  cursor: pointer;
+}
+
+.app__railbtn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--bg-panel-2);
+}
+
+.app__center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.app__viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+/* ── 面板 ───────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.panel__title {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: none;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 面板标题里的主标题：窄栏时用省略号收尾，别把后面的说明挤掉。 */
+.panel__title-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel__body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px 12px 20px;
+  min-height: 0;
+}
+
+.panel__section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel-2);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.panel__section > h4 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.panel__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel-2);
+  flex: 0 0 auto;
+}
+
+/* 采集中锁定参数时的提示条：贴在面板正文上方，随锁定状态出现/消失。
+   用 warn 色（#fbbf24）而不是 bad 色——这不是出错，是「本次会话期间不允许改」的正常约束。 */
+.locknote {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--warn);
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── 可折叠区块 ─────────────────────────────────────────────────────────── */
+
+/* 左栏只有 372px，三台设备加相对位置参数竖排下来要滚很久才看得全。
+   收成标题行之后，用户能一屏看到整份配置的目录，只展开当前要改的那块。
+   展开状态由 ConfigPanel 统一持有（受控），这样才能做「全部展开 / 全部折叠」。 */
+.collapse {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel-2);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.collapse__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.collapse__head:hover {
+  background: rgba(56, 189, 248, 0.07);
+}
+
+.collapse__head:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.collapse__caret {
+  flex: 0 0 auto;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.collapse--open .collapse__caret {
+  transform: rotate(90deg);
+}
+
+.collapse__name {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collapse__tail {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.collapse__body {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* 折叠区块正文里的参数区：借 fieldset[disabled] 的原生能力把整段参数控件一次性禁用
+   （三十多个输入框逐个传 disabled 迟早漏一个），这里只把它自带的边框、内边距抹掉。
+   min-inline-size 必须归零：fieldset 的默认值是 min-content，会让里面的 1fr 网格撑破面板宽度。 */
+.lockfield {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+/* ── 表单 ───────────────────────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 7px;
+  min-width: 0;
+}
+
+.field__label {
+  font-size: 11px;
+  color: var(--text-dim);
+  /* 标签宁可折行也不许被裁掉：窄栏里「相对基线夹角（度）」这类长标签原来只能看到半截。 */
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* 控件外壳：只是一层布局壳，**不带边框与底色**——真正的边框在里面的 input/select 上。
+   早先这里与 input/select 共用同一条盒子样式，会渲染出「框套框」，还白吃掉 14px 可用宽度。 */
+.field__control {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.field input,
+.field select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  min-width: 0;
+  width: 100%;
+}
+
+/* 同一格里的多个控件上下排：串口的「下拉框常驻 + 手输框在下面」用这个。 */
+.stack {
+  display: grid;
+  gap: 4px;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.field input:disabled,
+.field select:disabled {
+  opacity: 0.45;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 参数栅格：列数随可用宽度自适应，不写死 2/3 列。
+   左栏只有 372px 宽，写死 3 列时每列 ~98px——「解析 RMC」「串口（RS-232/485）」这类文字
+   只能看到头两个字（用户反馈「参数选项显示不全」的根因）。auto-fit 让窄栏自动落成 2 列甚至 1 列。 */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+/* 下拉框独占一整行：<select> 的选中项文字宽度由列宽决定，截断了也没法悬停看全文
+   （原生下拉不给 title），所以干脆让它吃满整行，把「雷达通讯方式」「目录模式」这类
+   长选项一次性显示完整。 */
+.field:has(select) {
+  grid-column: 1 / -1;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  /* 标签不许折行：设备标题行里被挤窄时「启用」会断成两个字两行（m06173 第 5 点）。
+     宽度靠布局给，不靠折行——栅格已是 auto-fit minmax(150px/160px, 1fr)，里面的标签放得下；
+     标题行里让 .collapse__name 先缩（它自带 overflow:hidden + ellipsis）。 */
+  white-space: nowrap;
+}
+
+.switch input {
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+/* 被锁定的开关（采集中）：与 .field input:disabled 同样的灰化程度，光标也退回默认。
+   用 :has() 是因为开关在锁定区里时是被外层 fieldset[disabled] 连带禁用的，
+   React 侧并不知道，没法靠传参加类名。 */
+.switch:has(input:disabled) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── 按钮 ───────────────────────────────────────────────────────────────── */
+
+.btn {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #1b2740;
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: #0b5d84;
+  border-color: #0e7ba8;
+  color: #e6f6ff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #0e7099;
+}
+
+.btn--danger {
+  background: #5c1f24;
+  border-color: #8a3238;
+  color: #ffe4e4;
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: #7a2a30;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: #16223a;
+}
+
+/* ── 标记 ───────────────────────────────────────────────────────────────── */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chip--ok {
+  color: #b8f5dc;
+  border-color: #1c6b52;
+  background: #0c2b23;
+}
+
+.chip--warn {
+  color: #ffe9b8;
+  border-color: #7a5a12;
+  background: #2c220d;
+}
+
+.chip--bad {
+  color: #ffd4d4;
+  border-color: #7d2b2b;
+  background: #2c1414;
+}
+
+.chip--idle {
+  color: var(--text-faint);
+}
+
+/* ── 表格与键值 ─────────────────────────────────────────────────────────── */
+
+/* 真表格：状态面板「雷达探测精度校核」里的极坐标对照表（原来中间那张样本表也用它，已随面板删除）。 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--bg-panel-2);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 7px;
+  z-index: 1;
+}
+
+.table td {
+  padding: 4px 7px;
+  border-bottom: 1px solid #16203400;
+  vertical-align: top;
+}
+
+.table tbody tr:nth-child(even) {
+  background: #0d152400;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 3px 8px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.kv__k {
+  color: var(--text-dim);
+}
+
+.kv__v {
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* ── 文本 ───────────────────────────────────────────────────────────────── */
+
+.hint {
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 4px 0;
+}
+
+/* 悬停提示浮层：默认不存在于页面上，鼠标进入参数框 / 聚焦控件 / 悬停「说明」标记时才出现。
+   用 fixed + portal 而不是就地绝对定位——配置面板自己是滚动容器，就地定位会被下沿裁掉。
+   pointer-events: none 让浮层不挡住鼠标，否则鼠标一进入浮层就会触发 mouseleave 反复闪烁。 */
+.hinttip {
+  position: fixed;
+  z-index: 90;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-panel-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* 段落级说明的锚点：整段说明收起来后，靠它把全文调出来。 */
+.hintmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-start;
+  margin: 2px 0 4px;
+  padding: 1px 5px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 9px;
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 1.5;
+  cursor: help;
+  user-select: none;
+}
+
+.hintmark::after {
+  content: 'i';
+  font-style: italic;
+  font-weight: 700;
+}
+
+.hintmark:hover,
+.hintmark:focus {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* ── 页签 ───────────────────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  overflow-x: auto;
+}
+
+.tabs__item {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--text-dim);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  white-space: nowrap;
+}
+
+.tabs__item:hover {
+  color: var(--text);
+  background: #16223a;
+}
+
+.tabs__item--active {
+  color: var(--text);
+  background: var(--bg-panel-2);
+  border-color: var(--border);
+  border-bottom: 1px solid var(--bg-panel-2);
+  margin-bottom: -1px;
+}
+
+/* ── 三维视图与 HUD ─────────────────────────────────────────────────────── */
+
+/* 三维画布容器。必须是绝对定位铺满父级 .app__viewer：
+   .app__viewer 的 flex-basis 是 auto，高度在 CSS 语义上属于「不确定」，
+   所以它内部的 height:100% 会解析成 auto，canvas 会退化成 HTML 默认的 300x150，
+   表现就是三维区域很矮、下面留一大片黑。绝对定位按父级 padding box 解析，绕开这个坑。 */
+.viewer3d {
+  position: absolute;
+  inset: 0;
+}
+
+.viewer3d canvas {
+  display: block;
+  touch-action: none;
+}
+
+.viewer-hud {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: rgba(8, 14, 26, 0.72);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  min-width: 210px;
+}
+
+.viewer-hud__line {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text);
+  white-space: pre;
+}
+
+.viewer-hud__sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: pre;
+}
+
+.scene-tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(8, 14, 26, 0.75);
+  border: 1px solid var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.scene-tag--drone {
+  color: var(--drone);
+  border-color: #7c3a10;
+}
+
+.scene-tag--radar {
+  color: var(--accent-2);
+  border-color: #4c3a7a;
+}
+
+.scene-tag--base {
+  color: var(--accent);
+  border-color: #1c5a75;
+}
+
+/* ── 提示条 ─────────────────────────────────────────────────────────────── */
+
+.notices {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 50;
+  max-width: 380px;
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: #0f2a22;
+  border: 1px solid #1c6b52;
+  color: #cdf7e5;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+.notice--bad {
+  background: #2c1414;
+  border-color: #7d2b2b;
+  color: #ffd9d9;
+}
+
+.notice button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+
+.notice button:hover {
+  opacity: 1;
+}
+
+/* ── 滚动条 ─────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #24334d;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #33456a;
+}
+
+/* ── 日志 ───────────────────────────────────────────────────────────────── */
+
+.logs {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.logs__line {
+  border-bottom: 1px solid #101827;
+  padding: 1px 0;
+}
+
+/* ── 右侧信息面板 ───────────────────────────────────────────────────────── */
+
+/* 「最新一帧」读数块：一行一个字段，值是等宽字体，由 rAF 直接改 textContent。 */
+.infopanel__block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.infopanel__row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.infopanel__label {
+  flex: 0 0 62px;
+  color: var(--text-faint);
+}
+
+.infopanel__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  color: var(--text);
+  word-break: break-word;
+}
+
+.infopanel__value--ok {
+  color: var(--ok);
+}
+
+.infopanel__value--warn {
+  color: var(--warn);
+}
+
+.infopanel__value--bad {
+  color: var(--bad);
+}
+
+/* 目标板：列多，窄栏放不下就横向滚动，不挤压三维区。 */
+.infopanel__tablewrap {
+  overflow-x: auto;
+  margin: 2px 0 4px;
+}
+
+.infopanel__table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.infopanel__table th {
+  position: sticky;
+  top: 0;
+  padding: 3px 6px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-faint);
+  background: var(--bg-panel-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.infopanel__table td {
+  padding: 2px 6px;
+  text-align: right;
+  color: var(--text-dim);
+  border-bottom: 1px solid #101827;
+}
+
+.infopanel__table th:first-child,
+.infopanel__table td:first-child {
+  text-align: left;
+}
+
+.infopanel__id {
+  color: var(--text);
+}
+
+.infopanel__type {
+  color: var(--text-faint);
+}
+
+/* 该设备的滚动解析行：时间 + 后端 Summary 原文。 */
+.infopanel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.infopanel__sample {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #101827;
+  font-size: 11px;
+}
+
+.infopanel__time {
+  flex: 0 0 78px;
+  color: var(--text-faint);
+}
+
+.infopanel__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-dim);
+  word-break: break-word;
+}
+
+/* ── 三维视角切换 ───────────────────────────────────────────────────────── */
+
+/* 画布外的按钮叠加层：左下角，避开 HUD（左上）与目标详情（右上）。 */
+.viewer3d__views {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+}
+
+.viewbtn {
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: rgba(14, 21, 36, 0.82);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.viewbtn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.viewbtn--active {
+  color: #04263a;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* 按钮右侧的操作提示。视图切到俯视/侧视后左键含义变了，不写出来用户不知道还能拖。 */
+.viewer3d__hint {
+  align-self: center;
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  text-shadow: 0 1px 2px #000a;
+  pointer-events: none;
+}
+
+/* ── 补充的小尺寸控件 ───────────────────────────────────────────────────── */
+
+/* 页签行里的「收起」按钮：比常规按钮矮一档，不把页签行撑高。 */
+.btn--tiny {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* 页签放不下时换行（右栏四个页签 + 收起按钮），而不是横向滚动藏掉后面的页签。 */
+.tabs--wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
