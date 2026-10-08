@@ -20,6 +20,18 @@
 
 ## 一、快速开始
 
+**环境要求**（Windows）：
+
+| 依赖 | 版本（本机实测） | 用途 |
+| --- | --- | --- |
+| .NET SDK | 9.0（实测 9.0.301） | 编译并运行后端 |
+| Node.js + npm | ≥ 20（实测 v24.19.0） | 构建前端 |
+
+`frontend\node_modules`、`wwwroot`、`bin/obj`、运行期 `data/` 都不进版本库，所以刚克隆下来
+第一次跑时，`run.cmd` / `run.ps1` 会先自动装前端依赖（仓库里带 `package-lock.json` 就用
+`npm ci`，否则 `npm install`）；连不上 npm registry 的机器，从别处复制整个
+`frontend\node_modules` 目录即可。串口枚举走 Windows API，Linux / macOS 未验证。
+
 ```
 run.cmd                 # 生产模式：构建前端到后端 wwwroot，启动后端，自动打开浏览器
 run.cmd -Dev            # 开发模式：后端 + Vite 开发服务器（前端热更新），打开 http://localhost:5173

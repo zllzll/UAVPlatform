@@ -10,7 +10,7 @@
 #
 # 说明：
 #   * 生产模式下前端产物被后端静态托管，只需要一个端口、一个进程，交给现场用户最省事。
-#   * 开发模式需要 frontend\node_modules 已存在（本机离线，无法 npm install）。
+#   * frontend\node_modules 不在版本库里；缺了会自动装（有 package-lock.json 走 npm ci，否则 npm install）。
 #   * 后端监听地址在 backend\src\UavPlatform.Api\appsettings.json 的 "Urls" 里改。
 
 [CmdletBinding()]
@@ -39,6 +39,27 @@ function Assert-Tool([string]$name, [string]$hint) {
     }
 }
 
+# node_modules 不进版本库：刚从 GitHub 克隆下来、或换了一台机器时，这里替用户装一次。
+function Ensure-FrontendDeps {
+    if (Test-Path (Join-Path $frontend 'node_modules')) { return }
+
+    Assert-Tool 'npm' '请安装 Node.js（本机实测 v24.19.0）。'
+    Write-Step '安装前端依赖（首次或换机器时没有 node_modules）'
+
+    $lock = Join-Path $frontend 'package-lock.json'
+    Push-Location $frontend
+    try {
+        if (Test-Path $lock) { & npm ci --no-audit --no-fund }
+        else { & npm install --no-audit --no-fund }
+        if ($LASTEXITCODE -ne 0) {
+            throw "前端依赖安装失败（npm 退出码 $LASTEXITCODE）。如果本机连不上 npm registry，请从别的机器复制整个 frontend\node_modules 目录过来。"
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 Assert-Tool 'dotnet' '请安装 .NET 9 SDK（本机实测 9.0.301）。'
 
 if (-not (Test-Path $solution)) {
@@ -54,9 +75,7 @@ if (-not $Dev) {
         Assert-Tool 'npm' '请安装 Node.js（本机实测 v24.19.0）。'
 
         Write-Step '构建前端（产物输出到 backend\src\UavPlatform.Api\wwwroot）'
-        if (-not (Test-Path (Join-Path $frontend 'node_modules'))) {
-            throw "缺少 $frontend\node_modules。本机离线无法 npm install，请从参考项目复制该目录。"
-        }
+        Ensure-FrontendDeps
         Push-Location $frontend
         try {
             & npm run build
@@ -121,9 +140,7 @@ else {
         if ($LASTEXITCODE -ne 0) { throw "后端构建失败（dotnet build 退出码 $LASTEXITCODE）。" }
     }
 
-    if (-not (Test-Path (Join-Path $frontend 'node_modules'))) {
-        throw "缺少 $frontend\node_modules。本机离线无法 npm install，请从参考项目复制该目录。"
-    }
+    Ensure-FrontendDeps
 
     Write-Step "启动后端：$backendUrl"
     $backend = Start-Process -FilePath 'dotnet' `
