@@ -16,7 +16,7 @@
  *   文本      hint / hinttip / hintmark / mono / switch
  *   视图      viewer3d / viewer3d__views / viewer3d__hint / viewbtn / viewbtn--active
  *             viewer-hud / viewer-hud__line / viewer-hud__sub
- *             scene-tag / scene-tag--drone / scene-tag--radar / scene-tag--base
+ *             scene-tag（三维场景里的贴附文字，目前只有雷达探测对比读数用）
  *   其它      tabs / tabs__item / tabs__item--active / tabs--wrap / notices / notice / notice--bad
  */
 
@@ -748,6 +748,8 @@ body {
   white-space: pre;
 }
 
+/* 设备的「无人机 / 雷达 / 基座」三个三维标签已按需求删除（三维区域只留图标），
+   对应的 .scene-tag--drone / --radar / --base 也随之移除；设备配色仍用上面的 --drone 等变量。 */
 .scene-tag {
   font-family: var(--mono);
   font-size: 11px;
@@ -757,21 +759,6 @@ body {
   border: 1px solid var(--border);
   color: var(--text);
   white-space: nowrap;
-}
-
-.scene-tag--drone {
-  color: var(--drone);
-  border-color: #7c3a10;
-}
-
-.scene-tag--radar {
-  color: var(--accent-2);
-  border-color: #4c3a7a;
-}
-
-.scene-tag--base {
-  color: var(--accent);
-  border-color: #1c5a75;
 }
 
 /* ── 提示条 ─────────────────────────────────────────────────────────────── */

@@ -15,10 +15,16 @@
  * 整棵 React 树随之卸载，页面只剩深色背景（用户看到的就是「整个网页都是黑的」）。
  *
  * 「雷达探测精度」相关的可视元素（本文件特有，改动时别认错）：
- *   1. 无人机 RTK 位置  = 洋红菱形（八面体线框）+ 水平环 +「RTK」标签，见 DroneLayer；
+ *   1. 无人机 RTK 位置  = 洋红菱形（八面体线框）+ 水平环，见 DroneLayer；
  *   2. 雷达探测点 ↔ RTK 点 的偏差连线 = 橙虚线（未匹配转暗橙点线），见 DroneComparisonLayer；
  *   3. 对比读数与雷达正前方朝向的具体数值写在 Hud 的两行 .viewer-hud__sub 上。
  * 注意 2 与 DroneLayer 里那两条受 ui.showLinks 控制的测距辅助线是两回事，别把开关串起来。
+ *
+ * 三个设备**只画图标、不挂文字标签**（三维区域里不出现「无人机 / 雷达 / 基座」字样）：
+ * 身份靠形状 + 配色辨认 —— 橙色机身 billboard（DroneLayer）、青色锥体 + 扇面（RadarLayer）、
+ * 紫色杆 + 球（BaseStationLayer）；颜色对照见左侧状态面板与信息面板。
+ * 数据陈旧**不再用文字表达**，改为压灰/压淡：tintDroneIcon / tintNodeMaterial / 杆件 opacity
+ * （外加 Hud 里那行陈旧读数）。要再加场景标签，请先确认这个约定，别只改一处。
  */
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls } from '@react-three/drei'
@@ -39,17 +45,18 @@ const MAX_TRAIL_SEGMENTS = 40000
 const PICK_RADIUS_PX = 12
 
 /**
- * 场景里所有贴附文字的「距离缩放因子」，传给 drei <Html distanceFactor>。
+ * 场景里仅剩两处贴附文字的「距离缩放因子」，传给 drei <Html distanceFactor>。
  *
  * drei 逐帧按 `scale = distanceFactor / (2·tan(fov/2)·相机距离)` 缩放标签 DOM，
- * 也就是**拉远变小、拉近变大**——这是刻意的透视逻辑。六处标签（无人机 / RTK / 雷达 /
- * 基座 / 目标 / 方位刻度）必须共用这**同一个常量**，否则同一距离下大小会不一致。
+ * 也就是**拉远变小、拉近变大**——这是刻意的透视逻辑。两处（方位刻度 / 雷达探测对比）
+ * 必须共用这**同一个常量**，否则同一距离下大小会不一致。
+ * （设备的「无人机 / RTK / 雷达 / 基座」四个标签已按需求从场景里删除，只剩图标，
+ *   所以这个因子如今的标定基准只有方位刻度。）
  *
  * 取值依据：fov = 50 ⇒ 2·tan(25°) ≈ 0.9326，`scale = 因子 / (0.9326 × 相机到该标签的距离)`。
- * 默认自由机位在 (150, 130, 190)：原点的设备标签离相机 ≈ 275，而方位刻度在 ±0.55×gridSize
- * （默认 gridSize = 200 ⇒ ±110 m）处、离相机 ≈ 360 —— 两者不在同一个距离上，因子只能折中。
- * 取 320：方位刻度在默认机位下 scale ≈ 0.95（12px 的字渲染成 ~15px 行盒，跟「刚打开时」看到的
- * 自然字号基本一致，这是用户期望的观感），原点附近的设备标签 scale ≈ 1.25（11px 的字略放大到 ~14px）。
+ * 方位刻度在 ±0.55×gridSize（默认 gridSize = 200 ⇒ ±110 m）处，默认自由机位 (150, 130, 190)
+ * 下离相机 ≈ 360 —— 取 320：方位刻度在默认机位下 scale ≈ 0.95（12px 的字渲染成 ~15px 行盒，
+ * 跟「刚打开时」看到的自然字号基本一致，这是用户期望的观感）。
  * 早先用的是 90：默认机位只有 0.24~0.35 倍，而 drei 的**第一帧还没施加这个缩放**，于是
  * 「刚打开很清楚、一动视角字就变小」——那是标定不准，不是透视逻辑错。
  * 想整体调大调小就改这一个数，不要在调用处各写各的。
@@ -283,7 +290,7 @@ function CompassLabel({
   color: string
   small?: boolean
 }): React.ReactElement {
-  // 方位刻度与场景里其它标签共用 LABEL_DISTANCE_FACTOR：拉远变小、拉近变大。
+  // 方位刻度与场景里另一处标签（雷达探测对比读数）共用 LABEL_DISTANCE_FACTOR：拉远变小、拉近变大。
   // （曾经这里不传 distanceFactor，任何机位都同样大，反而与其它标签的规则不一致。）
   return (
     <Html position={position} center distanceFactor={LABEL_DISTANCE_FACTOR} zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
@@ -390,10 +397,10 @@ const droneHeadingScratch = new THREE.Vector3()
  * 所以机头始终指着真实航向（m06464 第 3 点）。
  *
  * 陈旧态（意见 7）：设备断流后**不隐藏**——冻结在最后位置 + 明确标注，比直接消失更容易
- * 排查现场问题；但会把图标/标记压成灰色半透明并给标签补上「（数据陈旧 X.X s）」，
+ * 排查现场问题；但会把图标/标记压成灰色半透明（场景里已无文字标签，具体年龄见 Hud 与状态面板），
  * 免得「冻结的旧位置」看起来像实时。
  *
- * showDrone（m06464 第 2 点）只关掉无人机**本身**：图标、光晕、RTK 标记与两个标签。
+ * showDrone（m06464 第 2 点）只关掉无人机**本身**：图标、光晕、RTK 标记。
  * 测距辅助线与轨迹各有各的开关（showLinks / showTrack），关掉无人机本身不影响它们。
  */
 function DroneLayer({
@@ -412,7 +419,6 @@ function DroneLayer({
   const rtkShellMaterial = useRef<THREE.MeshBasicMaterial>(null)
   const rtkEdgeMaterial = useRef<THREE.MeshBasicMaterial>(null)
   const rtkRingMaterial = useRef<THREE.MeshBasicMaterial>(null)
-  const labelRef = useRef<HTMLSpanElement>(null)
 
   const linkGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry()
@@ -448,7 +454,7 @@ function DroneLayer({
     const stale = isNodeStale(node)
     tintDroneIcon(iconMaterial.current, stale)
     if (haloMaterial.current) haloMaterial.current.opacity = stale ? 0.03 : 0.08
-    setText(labelRef.current, stale ? `无人机${staleMark(node)}` : '无人机')
+    // 陈旧只压观感、不写文字（场景里已没有设备标签），所以这里没有 setText。
 
     // ── 航向：图标是 billboard，它在屏幕上永远「正着」，不会自己跟着航向转 ──
     // 所以把罗盘航向（顺时针自北，场景里北 = −Z）投影到相机的成像平面上，
@@ -514,7 +520,7 @@ function DroneLayer({
   return (
     <group>
       <group ref={group}>
-        {/* showDrone 关掉时这一整块不渲染（图标、光晕、RTK 标记、两个标签一起消失）；
+        {/* showDrone 关掉时这一整块不渲染（图标、光晕、RTK 标记一起消失）；
             测距辅助线与轨迹在下面，各受自己的开关控制（showLinks / showTrack） */}
         {showDrone ? (
           <>
@@ -571,18 +577,9 @@ function DroneLayer({
                 depthWrite={false}
               />
             </mesh>
-            <Html position={[0, 2.6, 0]} center distanceFactor={LABEL_DISTANCE_FACTOR} style={{ pointerEvents: 'none' }}>
-              {/* 文本由 useFrame 直接改 DOM（陈旧时补「（数据陈旧 X.X s）」后缀），不进 React state */}
-              <span ref={labelRef} className="scene-tag scene-tag--drone">
-                无人机
-              </span>
-            </Html>
-            {/* RTK 位置标记的文字：颜色用内联 style（index.css 是共享文件，本任务不许改） */}
-            <Html position={[0, -2.4, 0]} center distanceFactor={LABEL_DISTANCE_FACTOR} style={{ pointerEvents: 'none' }}>
-              <span className="scene-tag" style={{ color: RTK_HEX, borderColor: '#9d174d' }}>
-                RTK
-              </span>
-            </Html>
+            {/* 这里原有「无人机」「RTK」两个文字标签：三维区域不放设备标签，只留图标，
+                所以连 <Html> 一起删了。洋红菱形 + 水平环（RTK 位置标记）与橙色机身 billboard
+                靠形状和配色辨认即可，陈旧态由压灰表达（旧标签里的「数据陈旧 X.X s」见 Hud）。 */}
           </>
         ) : null}
       </group>
@@ -1135,13 +1132,12 @@ function RadarFov({
   )
 }
 
-/** 雷达本体标记 + 探测扇面。陈旧时（见 isNodeStale）压成灰色半透明并标注数据年龄。 */
+/** 雷达本体标记 + 探测扇面。陈旧时（见 isNodeStale）压成灰色半透明（场景里不放文字标签）。 */
 function RadarLayer({ rangeM, yawDeg }: { rangeM: number; yawDeg: number }): React.ReactElement {
   const group = useRef<THREE.Group>(null)
   const fovSpin = useRef<THREE.Group>(null)
   const bodyMaterial = useRef<THREE.MeshStandardMaterial>(null)
   const fovMaterial = useRef<THREE.MeshBasicMaterial>(null)
-  const labelRef = useRef<HTMLSpanElement>(null)
   useFrame(() => {
     const frame = live.frame
     const node = frame?.radar
@@ -1162,7 +1158,6 @@ function RadarLayer({ rangeM, yawDeg }: { rangeM: number; yawDeg: number }): Rea
     tintNodeMaterial(bodyMaterial.current, RADAR_COLOR, RADAR_EMISSIVE, stale)
     // 扇面只表示探测范围，陈旧时进一步压淡，避免被误读成「雷达正在扫」
     if (fovMaterial.current) fovMaterial.current.opacity = stale ? 0.03 : 0.07
-    setText(labelRef.current, stale ? `雷达${staleMark(node)}` : '雷达')
   })
   return (
     <group ref={group}>
@@ -1177,21 +1172,15 @@ function RadarLayer({ rangeM, yawDeg }: { rangeM: number; yawDeg: number }): Rea
         />
       </mesh>
       <RadarFov rangeM={rangeM} yawDeg={yawDeg} halfAngleDeg={RADAR_HALF_FOV_DEG} materialRef={fovMaterial} spinRef={fovSpin} />
-      <Html position={[0, 4, 0]} center distanceFactor={LABEL_DISTANCE_FACTOR} style={{ pointerEvents: 'none' }}>
-        <span ref={labelRef} className="scene-tag scene-tag--radar">
-          雷达
-        </span>
-      </Html>
     </group>
   )
 }
 
-/** 基座标记。陈旧时（见 isNodeStale）压成灰色半透明并标注数据年龄。 */
+/** 基座标记。陈旧时（见 isNodeStale）压成灰色半透明（场景里不放文字标签）。 */
 function BaseStationLayer(): React.ReactElement {
   const group = useRef<THREE.Group>(null)
   const poleMaterial = useRef<THREE.MeshStandardMaterial>(null)
   const headMaterial = useRef<THREE.MeshStandardMaterial>(null)
-  const labelRef = useRef<HTMLSpanElement>(null)
   useFrame(() => {
     const node = live.frame?.baseStation
     if (!group.current) return
@@ -1205,7 +1194,6 @@ function BaseStationLayer(): React.ReactElement {
     if (poleMaterial.current) poleMaterial.current.opacity = stale ? 0.45 : 1
     if (poleMaterial.current) poleMaterial.current.color.copy(stale ? STALE_COLOR : BASE_COLOR)
     tintNodeMaterial(headMaterial.current, BASE_COLOR, BASE_EMISSIVE, stale)
-    setText(labelRef.current, stale ? `基座${staleMark(node)}` : '基座')
   })
   return (
     <group ref={group}>
@@ -1223,11 +1211,6 @@ function BaseStationLayer(): React.ReactElement {
           transparent
         />
       </mesh>
-      <Html position={[0, 4.6, 0]} center distanceFactor={LABEL_DISTANCE_FACTOR} style={{ pointerEvents: 'none' }}>
-        <span ref={labelRef} className="scene-tag scene-tag--base">
-          基座
-        </span>
-      </Html>
     </group>
   )
 }

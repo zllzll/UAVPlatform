@@ -101,6 +101,22 @@ const MEASURE = [
   '})()',
 ].join('\n')
 
+// 三维区域里的全部文字：设备的「无人机 / RTK / 雷达 / 基座」标签已按需求删除，只该剩下方位刻度与半径标注
+const SCENE = [
+  '(() => {',
+  "  const root = document.querySelector('.viewer3d')",
+  '  if (!root) return { error: "no .viewer3d" }',
+  "  const visible = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }",
+  "  const spans = Array.from(root.querySelectorAll('span'))",
+  '  const txt = (el) => el.textContent.trim()',
+  '  return {',
+  '    spans: spans.map(txt),',
+  "    visibleTags: spans.filter((s) => s.className.indexOf('scene-tag') >= 0 && visible(s)).map(txt),",
+  "    deviceWords: spans.filter((s) => ['无人机', '雷达', '基座', 'RTK'].indexOf(txt(s)) >= 0).map(txt),",
+  '  }',
+  '})()',
+].join('\n')
+
 // 面板 DOM 快照：页签按钮、折叠区块名、开关文案
 const PANEL = [
   '(() => {',
@@ -288,10 +304,11 @@ const typePort = (text) =>
 
 /** 本机真实串口清单（后端枚举）与配置里保存的串口名，用来算「应该看到什么」。 */
 const localPorts = await (await fetch('http://localhost:5080/api/serial-ports')).json().then((r) => r.ports ?? [])
-const savedPort = await (await fetch('http://localhost:5080/api/config')).json().then((cfg) => {
-  const serial = (cfg.devices ?? []).find((d) => d.transport === 'serial')
-  return serial ? serial.transportSettings.serialPort : ''
-})
+const savedCfg = await (await fetch('http://localhost:5080/api/config')).json()
+const savedPort = ((savedCfg.devices ?? []).find((d) => d.transport === 'serial') ?? { transportSettings: {} })
+  .transportSettings.serialPort
+/** 配置里「启用存储」的真值。本脚本从不写配置，所以断言一律跟它比，绝不把某个状态当成常量。 */
+const savedStorage = !!(savedCfg.storage && savedCfg.storage.enabled)
 
 const userDir = path.join(OUT, 'cdp-profile-' + process.pid)
 try {
@@ -414,6 +431,25 @@ check(
   num(radius) && radius[0] >= 10 && radius[0] <= 15 && radius[1] < radius[0],
   JSON.stringify(radius),
 )
+
+// ── ⑤ 三维区域只留图标（设备文字标签已删）─────────────────────────────────────
+const scene = await cdp.eval(sessionId, SCENE)
+check(
+  '三维区域里没有任何可见的贴附文字标签（.scene-tag）',
+  !!scene && !scene.error && scene.visibleTags.length === 0,
+  scene && !scene.error ? JSON.stringify(scene.visibleTags) : String(scene && scene.error),
+)
+check(
+  '三维区域里没有「无人机 / 雷达 / 基座 / RTK」字样',
+  !!scene && !scene.error && scene.deviceWords.length === 0,
+  scene && !scene.error ? '区域文字=' + JSON.stringify(scene.spans) : String(scene && scene.error),
+)
+check(
+  '方位刻度与半径标注仍在（三维区域里该有的文字只有这些）',
+  !!scene && !scene.error && scene.spans.indexOf('北 N') >= 0 && scene.spans.some((t) => / m$/.test(t)),
+  scene && !scene.error ? JSON.stringify(scene.spans) : String(scene && scene.error),
+)
+await shoot('scene-no-device-labels')
 
 // ── ① 存储页签的落盘开关 ─────────────────────────────────────────────────────
 // ── ④ 仿真功能已删除（m00868 第 2 条）：界面没有按钮/参数条，后端没有端点 ─────────
@@ -542,6 +578,25 @@ check(
 
 const shotPanel = await shoot('storage-tab')
 
+// 面板载入时的草稿态取决于真配置里存的是什么（「启用存储」完全可能是关的），而「放弃修改」
+// 会把整份草稿拉回配置值 ⇒ 每次要跑「总开关 + 子开关」的序列之前，先把它归一到「开」。
+// 只点开关、不点「保存并生效」，配置一个字节都不会被改写。
+const ensureMasterOn = async () => {
+  const before = await cdp.eval(sessionId, readSwitch('启用存储'))
+  if (before.checked !== true) {
+    await cdp.eval(sessionId, toggleSwitch('启用存储'))
+    await sleep(400)
+  }
+  const after = await cdp.eval(sessionId, readSwitch('启用存储'))
+  return { before, after }
+}
+const normFirst = await ensureMasterOn()
+check(
+  '草稿已归一：总开关打开（配置里=' + savedStorage + '）',
+  normFirst.after.checked === true && !normFirst.after.disabled,
+  '载入=' + JSON.stringify(normFirst.before) + ' 归一后=' + JSON.stringify(normFirst.after),
+)
+
 // 拨一下开关：草稿要变、放弃修改要能还原（不写后端配置）
 const toggled = await cdp.eval(sessionId, toggleSwitch('雷达 解析数据'))
 const found = !!(toggled && !toggled.error)
@@ -562,10 +617,12 @@ check(
 // WriteRaw / WriteParsed / WriteRadarBase / WriteFrame 每个写入口也都先看它。所以界面必须诚实：
 // 总开关一关，子开关就该是灰的，并且要说清为什么。只改显示——灰掉不动值，勾回来立刻恢复。
 const KIDS = ['保存雷达转基座系', '保存三设备同帧', '解析文件内嵌原始数据', '写 session.json 清单', '基座 原始数据']
+// 上面的「放弃修改」刚把草稿整份拉回配置值（配置里总开关可能是关的）⇒ 这里再归一一次
+const normAgain = await ensureMasterOn()
 const beforeMaster = await cdp.eval(sessionId, readSwitches(['启用存储', ...KIDS]))
 const kidsBefore = beforeMaster.slice(1)
 check(
-  '存储总开关与子开关初始都可点',
+  '总开关打开时，子开关都可点',
   beforeMaster[0].checked === true && kidsBefore.every((s) => !s.error && !s.disabled),
   JSON.stringify(beforeMaster),
 )
@@ -632,12 +689,13 @@ check(
   '保存值=' + JSON.stringify(savedPort) + ' 现在=' + JSON.stringify(savedAfter),
 )
 report.savedPort = { before: savedPort, after: savedAfter }
+report.savedStorage = { before: savedStorage, after: cfgAfter.storage && cfgAfter.storage.enabled }
 check(
   '配置文件里的「启用存储」也没被面板自动改写',
-  !!(cfgAfter.storage && cfgAfter.storage.enabled === true),
-  '现在=' + JSON.stringify(cfgAfter.storage && cfgAfter.storage.enabled),
+  !!(cfgAfter.storage && cfgAfter.storage.enabled === savedStorage),
+  '载入时=' + savedStorage + ' 现在=' + JSON.stringify(cfgAfter.storage && cfgAfter.storage.enabled),
 )
-report.storage = { master: beforeMaster[0], kids: kidsBefore, afterOff, afterOn }
+report.storage = { savedStorage, normFirst, normAgain, master: beforeMaster[0], kids: kidsBefore, afterOff, afterOn }
 
 report.shots = { shotLoad, shotOut, shotPanel, shotSerial, shotMaster }
 report.compass = { home, far, near }
